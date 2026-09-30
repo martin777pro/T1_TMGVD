@@ -1,5 +1,4 @@
 #!/bin/bash
-# Uso: ./codigo/experimentos.sh traza.bin carpeta_salida
 set -e
 
 TRAZA=$1
