@@ -6,6 +6,8 @@
 g++ -O2 -std=c++17 -o sketch_ventana codigo/sketch_ventana.cpp
 ```
 
+`sketch_ventana.cpp` usa `mmap`, `unistd.h` y `__int128`, así que requiere Linux, macOS o WSL. No compila con MSVC ni con MinGW en Windows.
+
 ## Uso
 
 ```bash

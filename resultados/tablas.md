@@ -2,15 +2,27 @@
 
 ## Resumen CMS vs CS (d = 5)
 
-| Sketch | w | Memoria (B) | Validación: error abs. medio | Validación: error rel. mediano | MRE DDoS | MRE Scan | Latencia DDoS (s) | Latencia Scan (s) |
-|---|---|---|---|---|---|---|---|---|
-| CMS | 256 | 35840 | 7104 | 0.1045 | 0.0364 | 0.0362 | 10 | 10 |
-| CS | 256 | 35840 | 2921 | 0.0243 | 0.0158 | 0.0111 | 10 | 20 |
-| CMS | 1024 | 143360 | 1272 | 0.0194 | 0.0081 | 0.0054 | 10 | 20 |
-| CS | 1024 | 143360 | 406 | 0.0024 | 0.0010 | 0.0029 | 10 | 20 |
-| CMS | 4096 | 573440 | 248 | 0.0036 | 0.0019 | 0.0008 | 10 | 20 |
-| CS | 4096 | 573440 | 45 | 0.0004 | 0.0001 | 0.0001 | 10 | 20 |
-| Exacto |  |  |  |  |  |  | 10 | 20 |
+| Sketch | w | Memoria (B) | Validación: error abs. medio | Validación: error rel. medio | Validación: error rel. mediano | MRE DDoS | MRE Scan | Latencia DDoS (s) | Latencia Scan (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| CMS | 256 | 35840 | 7104 | 114.8004 | 0.1045 | 0.0364 | 0.0362 | 10 | 10 |
+| CS | 256 | 35840 | 2921 | 9.7556 | 0.0243 | 0.0158 | 0.0111 | 10 | 20 |
+| CMS | 1024 | 143360 | 1272 | 20.7914 | 0.0194 | 0.0081 | 0.0054 | 10 | 20 |
+| CS | 1024 | 143360 | 406 | 1.0748 | 0.0024 | 0.0010 | 0.0029 | 10 | 20 |
+| CMS | 4096 | 573440 | 248 | 4.6539 | 0.0036 | 0.0019 | 0.0008 | 10 | 20 |
+| CS | 4096 | 573440 | 45 | 0.1317 | 0.0004 | 0.0001 | 0.0001 | 10 | 20 |
+| Exacto |  |  |  |  |  |  |  | 10 | 20 |
+
+
+## Falsos positivos y negativos por ventana (ventanas graficadas: 16 en DDoS, 16 en Scan)
+
+| Sketch | w | FP DDoS | FN DDoS | FP Scan | FN Scan | Ventanas con decisión distinta (τ en s) |
+|---|---|---|---|---|---|---|
+| CMS | 256 | 0 | 0 | 2 | 0 | Scan 310, 380 |
+| CS | 256 | 0 | 0 | 0 | 0 | ninguna |
+| CMS | 1024 | 0 | 0 | 0 | 0 | ninguna |
+| CS | 1024 | 0 | 0 | 0 | 0 | ninguna |
+| CMS | 4096 | 0 | 0 | 0 | 0 | ninguna |
+| CS | 4096 | 0 | 0 | 0 | 0 | ninguna |
 
 
 ## DDoS: error relativo por ventana en J (8 ventanas)

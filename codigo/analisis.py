@@ -10,6 +10,7 @@ import pandas as pd
 
 ENTRADA, SALIDA = sys.argv[1], sys.argv[2]
 ANCHOS = [256, 1024, 4096]
+TEXTO_ANCHOS = ", ".join(map(str, ANCHOS[:-1])) + f" y {ANCHOS[-1]}"
 D = 5
 W_US = 60_000_000
 
@@ -38,18 +39,30 @@ def memoria(w):
     return 7 * D * w * 4  # 6 sub-sketches + agregado, contadores int32
 
 
+def verificar_N(exacto, estimado, traza):
+    m = exacto.merge(estimado, on=["win", "key"], suffixes=("", "_sk"))
+    assert len(m) == len(exacto) and (m.N == m.N_sk).all(), f"N_j no coincide con exact_hh en {traza}"
+
+
 def validacion():
+    partes = {w: [] for w in ANCHOS}
+    for clave in ("src", "dst"):
+        exacto = pd.read_csv(f"{ENTRADA}/base_{clave}_exacto.csv")
+        for w in ANCHOS:
+            estimado = pd.read_csv(f"{ENTRADA}/base_{clave}_w{w}.csv")
+            verificar_N(exacto, estimado, f"base_{clave}_w{w}")
+            partes[w].append(exacto.merge(estimado, on=["win", "key"]))
+        print(f"N_j coincide con exact_hh en las {exacto.win.nunique()} ventanas "
+              f"de la traza base (clave {clave}, w = {TEXTO_ANCHOS})")
+
     resultado = {}
     for w in ANCHOS:
-        m = pd.concat([
-            pd.read_csv(f"{ENTRADA}/base_{clave}_exacto.csv")
-              .merge(pd.read_csv(f"{ENTRADA}/base_{clave}_w{w}.csv"), on=["win", "key"])
-            for clave in ("src", "dst")
-        ])
+        m = pd.concat(partes[w])
         m = m[m.exact_f > 0]
         for sk in NOMBRE:
             error = (m[f"{sk}_f"] - m.exact_f).abs()
-            resultado[sk, w] = (error.mean(), (error / m.exact_f).median())
+            relativo = error / m.exact_f
+            resultado[sk, w] = (error.mean(), relativo.mean(), relativo.median())
     return resultado
 
 
@@ -57,9 +70,11 @@ def cargar_ataque(nombre):
     datos = pd.read_csv(f"{ENTRADA}/{nombre}_exacto.csv")
     for w in ANCHOS:
         est = pd.read_csv(f"{ENTRADA}/{nombre}_w{w}.csv")
-        assert (est.N.values == datos.N.values).all(), "N_j no coincide con exact_hh"
+        verificar_N(datos, est, f"{nombre}_w{w}")
         for col in ("cms_f", "cs_f", "cms_hh", "cs_hh", "cms_med_delta", "cs_delta"):
             datos[f"{col}_{w}"] = est[col].values
+    print(f"N_j coincide con exact_hh en las {datos.win.nunique()} ventanas "
+          f"de la traza {nombre} (w = {TEXTO_ANCHOS})")
     gt = json.load(open(f"{ENTRADA}/gt_{nombre}.json"))
     return datos, gt
 
@@ -154,20 +169,41 @@ md = ["# Resultados\n"]
 filas = []
 for w in ANCHOS:
     for sk in NOMBRE:
-        error_abs, error_rel = errores_validacion[sk, w]
-        fila = [NOMBRE[sk], w, memoria(w), f"{error_abs:.0f}", f"{error_rel:.4f}"]
+        error_abs, rel_medio, rel_mediano = errores_validacion[sk, w]
+        fila = [NOMBRE[sk], w, memoria(w), f"{error_abs:.0f}", f"{rel_medio:.4f}", f"{rel_mediano:.4f}"]
         for datos, gt in ataques.values():
             J = ventanas_J(datos, gt)
             fila.append(f"{((J[f'{sk}_f_{w}'] - J.exact_f).abs() / J.exact_f).mean():.4f}")
         for datos, gt in ataques.values():
             fila.append(latencia(datos, gt, f"{sk}_hh_{w}"))
         filas.append(fila)
-filas.append(["Exacto", "", "", "", "", "", ""] +
+filas.append(["Exacto", "", "", "", "", "", "", ""] +
              [latencia(datos, gt, "exact_hh") for datos, gt in ataques.values()])
 md.append("## Resumen CMS vs CS (d = 5)\n")
 md.append(tabla_md(["Sketch", "w", "Memoria (B)", "Validación: error abs. medio",
-                    "Validación: error rel. mediano", "MRE DDoS", "MRE Scan",
-                    "Latencia DDoS (s)", "Latencia Scan (s)"], filas))
+                    "Validación: error rel. medio", "Validación: error rel. mediano",
+                    "MRE DDoS", "MRE Scan", "Latencia DDoS (s)", "Latencia Scan (s)"], filas))
+
+# Decisión de heavy hitter ventana por ventana, frente a la exacta
+filas = []
+for w in ANCHOS:
+    for sk in NOMBRE:
+        fila, distintas = [NOMBRE[sk], w], []
+        for nombre, (datos, gt) in ataques.items():
+            zona = zona_grafico(datos, gt)
+            hh = zona[f"{sk}_hh_{w}"]
+            fp = zona[(hh == 1) & (zona.exact_hh == 0)]
+            fn = zona[(hh == 0) & (zona.exact_hh == 1)]
+            fila += [len(fp), len(fn)]
+            if len(fp) + len(fn):
+                tiempos = sorted(pd.concat([fp, fn]).t_rel_s)
+                distintas.append(f"{TITULO[nombre]} " + ", ".join(f"{t:.0f}" for t in tiempos))
+        filas.append(fila + [" / ".join(distintas) or "ninguna"])
+n_zona = ", ".join(f"{len(zona_grafico(datos, gt))} en {TITULO[nombre]}"
+                   for nombre, (datos, gt) in ataques.items())
+md.append(f"\n## Falsos positivos y negativos por ventana (ventanas graficadas: {n_zona})\n")
+md.append(tabla_md(["Sketch", "w", "FP DDoS", "FN DDoS", "FP Scan", "FN Scan",
+                    "Ventanas con decisión distinta (τ en s)"], filas))
 
 for nombre, (datos, gt) in ataques.items():
     J = ventanas_J(datos, gt)
